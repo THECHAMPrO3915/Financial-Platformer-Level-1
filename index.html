@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Money Smart Adventure - Level 1</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: #2c3e50;
+            font-family: 'Press Start 2P', monospace;
+            overflow: hidden;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+
+        #gameCanvas {
+            border: 4px solid #34495e;
+            display: block;
+            margin: 5px auto;
+            background: linear-gradient(to bottom, #87CEEB 0%, #98FB98 50%, #90EE90 100%);
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            image-rendering: pixelated;
+        }
+
+        #ui {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            background: #34495e;
+            padding: 12px;
+            border: 3px solid #fff;
+            box-shadow: 3px 3px 0px #000;
+            min-width: 250px;
+        }
+
+        #ui::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            background: #fff;
+            z-index: -1;
+        }
+
+        #money {
+            font-size: 10px;
+            color: #f1c40f;
+            margin-bottom: 8px;
+            text-shadow: 1px 1px 0px #000;
+            letter-spacing: 1px;
+        }
+
+        #objective {
+            font-size: 8px;
+            color: #ecf0f1;
+            max-width: 240px;
+            line-height: 12px;
+            text-shadow: 1px 1px 0px #000;
+        }
+
+        #message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #2c3e50;
+            padding: 20px;
+            border: 4px solid #fff;
+            text-align: center;
+            display: none;
+            max-width: 400px;
+            box-shadow: 4px 4px 0px #000;
+            z-index: 1000;
+        }
+
+        #message h2 {
+            color: #f1c40f;
+            font-size: 12px;
+            margin: 0 0 15px 0;
+            text-shadow: 1px 1px 0px #000;
+        }
+
+        #message p {
+            color: #ecf0f1;
+            font-size: 8px;
+            line-height: 12px;
+            margin: 10px 0;
+            text-shadow: 1px 1px 0px #000;
+        }
+
+        #controls {
+            position: fixed;
+            bottom: 15px;
+            left: 15px;
+            background: #34495e;
+            padding: 8px;
+            border: 2px solid #fff;
+            box-shadow: 2px 2px 0px #000;
+            font-size: 7px;
+            color: #ecf0f1;
+            text-shadow: 1px 1px 0px #000;
+        }
+
+        .btn {
+            background: #e74c3c;
+            border: 3px solid #fff;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 8px;
+            margin: 5px;
+            color: #fff;
+            text-shadow: 1px 1px 0px #000;
+            box-shadow: 2px 2px 0px #000;
+            transition: none;
+        }
+
+        .btn:hover {
+            background: #c0392b;
+            box-shadow: 1px 1px 0px #000;
+            transform: translate(1px, 1px);
+        }
+
+        .btn:active {
+            box-shadow: none;
+            transform: translate(2px, 2px);
+        }
+
+        #healthBar {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            background: #34495e;
+            padding: 8px;
+            border: 2px solid #fff;
+            box-shadow: 2px 2px 0px #000;
+        }
+
+        #progressBar {
+            width: 120px;
+            height: 12px;
+            background: #2c3e50;
+            border: 2px solid #fff;
+            margin-top: 5px;
+        }
+
+        #progressFill {
+            height: 100%;
+            background: #27ae60;
+            width: 25%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div id="money">MONEY: AED 0</div>
+        <div id="objective">GOAL: RECEIVE BIRTHDAY MONEY AND BUY UMBRELLA FOR BROTHER!</div>
+    </div>
+
+    <div id="healthBar">
+        <div style="color: #ecf0f1; font-size: 8px; text-shadow: 1px 1px 0px #000;">LEVEL 1</div>
+        <div id="progressBar">
+            <div id="progressFill"></div>
+        </div>
+    </div>
+
+    <div id="controls">
+        LEFT/RIGHT ARROWS: MOVE | SPACE: INTERACT
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div id="message">
+        <h2>MONEY SMART ADVENTURE!</h2>
+        <p>Today is your 10th birthday! Let's learn about money management through this retro adventure.</p>
+        <button class="btn" onclick="closeMessage()">START GAME!</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const messageDiv = document.getElementById('message');
+        const moneyDisplay = document.getElementById('money');
+        const objectiveDisplay = document.getElementById('objective');
+
+        let gameState = {
+            money: 0,
+            hasReceivedGift: false,
+            hasPiggyBank: false,
+            atShop: false,
+            gamePhase: 'start', // start, gift, piggy, shop, complete
+            messageShown: true
+        };
+
+        const player = {
+            x: 100,
+            y: 450,
+            width: 40,
+            height: 50,
+            speed: 5,
+            color: '#FF6B6B'
+        };
+
+        const objects = {
+            giftBox: { x: 200, y: 460, width: 40, height: 40, active: true },
+            piggyBank: { x: 400, y: 460, width: 50, height: 40, active: false },
+            shop: { x: 650, y: 400, width: 80, height: 100, active: false },
+            umbrella: { x: 670, y: 440, width: 30, height: 30, visible: false }
+        };
+
+        const keys = {};
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (e.key === ' ') {
+                interact();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        function closeMessage() {
+            messageDiv.style.display = 'none';
+            gameState.messageShown = false;
+        }
+
+        function showMessage(title, text, buttonText = 'CONTINUE') {
+            messageDiv.innerHTML = `
+                <h2>${title}</h2>
+                <p>${text}</p>
+                <button class="btn" onclick="closeMessage()">${buttonText}</button>
+            `;
+            messageDiv.style.display = 'block';
+            gameState.messageShown = true;
+        }
+
+        function updateMoney() {
+            moneyDisplay.textContent = `MONEY: AED ${gameState.money}`;
+        }
+
+        function updateObjective() {
+            switch(gameState.gamePhase) {
+                case 'start':
+                    objectiveDisplay.innerHTML = 'GOAL: GO TO GIFT BOX FOR BIRTHDAY MONEY!';
+                    document.getElementById('progressFill').style.width = '25%';
+                    break;
+                case 'gift':
+                    objectiveDisplay.innerHTML = 'GOAL: PUT MONEY IN PIGGY BANK FOR SAFETY!';
+                    document.getElementById('progressFill').style.width = '50%';
+                    break;
+                case 'piggy':
+                    objectiveDisplay.innerHTML = 'GOAL: GO TO SHOP TO BUY UMBRELLA!';
+                    document.getElementById('progressFill').style.width = '75%';
+                    break;
+                case 'shop':
+                    objectiveDisplay.innerHTML = 'GOAL: PRESS SPACE TO BUY UMBRELLA FOR AED 8!';
+                    document.getElementById('progressFill').style.width = '90%';
+                    break;
+                case 'complete':
+                    objectiveDisplay.innerHTML = 'MISSION COMPLETE! FINANCIAL WISDOM GAINED!';
+                    document.getElementById('progressFill').style.width = '100%';
+                    document.getElementById('progressFill').style.background = '#f1c40f';
+                    break;
+            }
+        }
+
+        function interact() {
+            if (gameState.messageShown) return;
+
+            const playerCenter = { x: player.x + player.width/2, y: player.y + player.height/2 };
+
+            // Check gift box interaction
+            if (gameState.gamePhase === 'start' && 
+                isNear(playerCenter, objects.giftBox) && objects.giftBox.active) {
+                gameState.money = 10;
+                gameState.hasReceivedGift = true;
+                gameState.gamePhase = 'gift';
+                objects.giftBox.active = false;
+                objects.piggyBank.active = true;
+                updateMoney();
+                updateObjective();
+                showMessage('HAPPY BIRTHDAY!', 'You received AED 10 as a birthday gift! This money is yours to manage wisely.');
+            }
+
+            // Check piggy bank interaction
+            if (gameState.gamePhase === 'gift' && 
+                isNear(playerCenter, objects.piggyBank) && objects.piggyBank.active) {
+                gameState.hasPiggyBank = true;
+                gameState.gamePhase = 'piggy';
+                objects.piggyBank.active = false;
+                objects.shop.active = true;
+                objects.umbrella.visible = true;
+                updateObjective();
+                showMessage('SMART SAVING!', 'You put your money in the piggy bank! Saving money keeps it safe until you need it for something important.');
+            }
+
+            // Check shop interaction
+            if (gameState.gamePhase === 'piggy' && 
+                isNear(playerCenter, objects.shop) && objects.shop.active) {
+                gameState.gamePhase = 'shop';
+                updateObjective();
+                showMessage('WELCOME TO SHOP!', 'The umbrella costs AED 8. You have AED 10, so you can afford it with AED 2 left over!');
+            }
+
+            // Buy umbrella
+            if (gameState.gamePhase === 'shop' && 
+                isNear(playerCenter, objects.umbrella) && objects.umbrella.visible) {
+                if (gameState.money >= 8) {
+                    gameState.money -= 8;
+                    gameState.gamePhase = 'complete';
+                    objects.umbrella.visible = false;
+                    updateMoney();
+                    updateObjective();
+                    showMessage('GREAT PURCHASE!', 'You bought the umbrella for your brother! You spent AED 8 and have AED 2 left. You learned about budgeting and making thoughtful purchases!', 'LEVEL COMPLETE!');
+                }
+            }
+        }
+
+        function isNear(pos1, obj) {
+            const distance = Math.sqrt(
+                Math.pow(pos1.x - (obj.x + obj.width/2), 2) + 
+                Math.pow(pos1.y - (obj.y + obj.height/2), 2)
+            );
+            return distance < 60;
+        }
+
+        function updatePlayer() {
+            if (gameState.messageShown) return;
+
+            if (keys['ArrowLeft'] && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if (keys['ArrowRight'] && player.x < canvas.width - player.width) {
+                player.x += player.speed;
+            }
+        }
+
+        function drawGround() {
+            ctx.fillStyle = '#8FBC8F';
+            ctx.fillRect(0, 500, canvas.width, 100);
+            
+            // Ground pattern
+            ctx.fillStyle = '#228B22';
+            for (let i = 0; i < canvas.width; i += 40) {
+                ctx.fillRect(i, 500, 20, 100);
+            }
+        }
+
+        function drawPlayer() {
+            // Player body
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            // Player head
+            ctx.fillStyle = '#FFDBAC';
+            ctx.beginPath();
+            ctx.arc(player.x + player.width/2, player.y + 10, 15, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Player eyes
+            ctx.fillStyle = '#000';
+            ctx.fillRect(player.x + player.width/2 - 8, player.y + 5, 3, 3);
+            ctx.fillRect(player.x + player.width/2 + 5, player.y + 5, 3, 3);
+            
+            // Player smile
+            ctx.beginPath();
+            ctx.arc(player.x + player.width/2, player.y + 12, 8, 0, Math.PI);
+            ctx.stroke();
+        }
+
+        function drawObjects() {
+            // Gift box
+            if (objects.giftBox.active) {
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(objects.giftBox.x, objects.giftBox.y, objects.giftBox.width, objects.giftBox.height);
+                ctx.fillStyle = '#FF4500';
+                ctx.fillRect(objects.giftBox.x + 15, objects.giftBox.y, 10, objects.giftBox.height);
+                ctx.fillRect(objects.giftBox.x, objects.giftBox.y + 15, objects.giftBox.width, 10);
+                
+                // Gift label
+                ctx.fillStyle = '#000';
+                ctx.font = '12px Comic Sans MS';
+                ctx.fillText('🎁 Birthday Gift!', objects.giftBox.x - 10, objects.giftBox.y - 10);
+            }
+
+            // Piggy bank
+            if (objects.piggyBank.active || gameState.hasPiggyBank) {
+                ctx.fillStyle = '#FFB6C1';
+                ctx.fillRect(objects.piggyBank.x, objects.piggyBank.y, objects.piggyBank.width, objects.piggyBank.height);
+                ctx.fillStyle = '#FF69B4';
+                ctx.beginPath();
+                ctx.arc(objects.piggyBank.x + 10, objects.piggyBank.y + 10, 5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Coin slot
+                ctx.fillStyle = '#000';
+                ctx.fillRect(objects.piggyBank.x + 20, objects.piggyBank.y + 5, 15, 3);
+                
+                if (objects.piggyBank.active) {
+                    ctx.fillStyle = '#000';
+                    ctx.font = '12px Comic Sans MS';
+                    ctx.fillText('🐷 Piggy Bank', objects.piggyBank.x - 5, objects.piggyBank.y - 10);
+                }
+            }
+
+            // Shop
+            if (objects.shop.active || gameState.gamePhase === 'shop' || gameState.gamePhase === 'complete') {
+                const shopX = objects.shop.x;
+                const shopY = objects.shop.y;
+                
+                // Main building structure
+                ctx.fillStyle = '#D2B48C';
+                ctx.fillRect(shopX, shopY + 20, objects.shop.width, objects.shop.height - 20);
+                
+                // Building outline
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(shopX, shopY + 20, objects.shop.width, objects.shop.height - 20);
+                
+                // Awning structure
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(shopX - 5, shopY + 15, objects.shop.width + 10, 8);
+                
+                // Striped awning
+                ctx.fillStyle = '#B22222';
+                ctx.fillRect(shopX - 8, shopY + 23, objects.shop.width + 16, 15);
+                
+                // Awning stripes
+                ctx.fillStyle = '#FFF';
+                for (let i = 0; i < 5; i++) {
+                    ctx.fillRect(shopX - 8 + (i * 18), shopY + 23, 9, 15);
+                }
+                
+                // Awning scalloped edge
+                ctx.fillStyle = '#B22222';
+                for (let i = 0; i < 6; i++) {
+                    ctx.beginPath();
+                    ctx.arc(shopX - 8 + (i * 16) + 8, shopY + 38, 4, 0, Math.PI);
+                    ctx.fill();
+                }
+                
+                // Shop sign
+                ctx.fillStyle = '#F5DEB3';
+                ctx.fillRect(shopX + 15, shopY, 50, 15);
+                ctx.strokeStyle = '#8B4513';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(shopX + 15, shopY, 50, 15);
+                
+                ctx.fillStyle = '#8B0000';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText('SHOP', shopX + 28, shopY + 11);
+                
+                // Windows
+                ctx.fillStyle = '#87CEEB';
+                ctx.fillRect(shopX + 10, shopY + 35, 25, 20);
+                ctx.fillRect(shopX + 45, shopY + 35, 20, 20);
+                ctx.fillRect(shopX + 45, shopY + 65, 20, 15);
+                
+                // Window frames
+                ctx.strokeStyle = '#4169E1';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(shopX + 10, shopY + 35, 25, 20);
+                ctx.strokeRect(shopX + 45, shopY + 35, 20, 20);
+                ctx.strokeRect(shopX + 45, shopY + 65, 20, 15);
+                
+                // Window reflections
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.fillRect(shopX + 12, shopY + 37, 8, 16);
+                ctx.fillRect(shopX + 47, shopY + 37, 8, 16);
+                ctx.fillRect(shopX + 47, shopY + 67, 8, 11);
+                
+                // Door
+                ctx.fillStyle = '#654321';
+                ctx.fillRect(shopX + 5, shopY + 60, 15, 40);
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(shopX + 5, shopY + 60, 15, 40);
+                
+                // Door handle
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(shopX + 17, shopY + 80, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Umbrella
+            if (objects.umbrella.visible) {
+                ctx.fillStyle = '#4169E1';
+                ctx.beginPath();
+                ctx.arc(objects.umbrella.x + 15, objects.umbrella.y + 10, 12, 0, Math.PI);
+                ctx.fill();
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(objects.umbrella.x + 14, objects.umbrella.y + 10, 2, 15);
+                
+                // Price tag
+                ctx.fillStyle = '#FFD700';
+                ctx.fillRect(objects.umbrella.x + 20, objects.umbrella.y - 5, 30, 15);
+                ctx.fillStyle = '#000';
+                ctx.font = '10px Comic Sans MS';
+                ctx.fillText('AED 8', objects.umbrella.x + 22, objects.umbrella.y + 5);
+            }
+        }
+
+        function drawInteractionPrompts() {
+            const playerCenter = { x: player.x + player.width/2, y: player.y + player.height/2 };
+            
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 12px Comic Sans MS';
+            
+            if (gameState.gamePhase === 'start' && isNear(playerCenter, objects.giftBox)) {
+                ctx.fillText('Press SPACE to open gift!', player.x - 20, player.y - 20);
+            }
+            if (gameState.gamePhase === 'gift' && isNear(playerCenter, objects.piggyBank)) {
+                ctx.fillText('Press SPACE to save money!', player.x - 30, player.y - 20);
+            }
+            if (gameState.gamePhase === 'shop' && isNear(playerCenter, objects.umbrella)) {
+                ctx.fillText('Press SPACE to buy!', player.x - 20, player.y - 20);
+            }
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawGround();
+            drawObjects();
+            updatePlayer();
+            drawPlayer();
+            drawInteractionPrompts();
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize game
+        updateMoney();
+        updateObjective();
+        messageDiv.style.display = 'block';
+        gameLoop();
+    </script>
+</body>
+</html>
